@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Terabox Video Player</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+  <style>
+    body {
+      margin: 0;
+      padding: 20px;
+      background: #111;
+      color: white;
+      font-family: sans-serif;
+      text-align: center;
+    }
+    input, button {
+      padding: 10px;
+      margin: 10px 0;
+      width: 90%;
+      max-width: 600px;
+      font-size: 16px;
+      border-radius: 5px;
+      border: none;
+    }
+    input {
+      background: #222;
+      color: white;
+    }
+    button {
+      background: #007bff;
+      color: white;
+      cursor: pointer;
+    }
+    video {
+      width: 90%;
+      max-width: 800px;
+      margin-top: 20px;
+      background: black;
+    }
+  </style>
+</head>
+<body>
+
+  <h2>📼 Terabox Player (via Proxy)</h2>
+  <input id="link" type="text" placeholder="Paste Terabox share link here..." />
+  <button onclick="playVideo()">▶️ Play Video</button>
+  <br/>
+  <video id="player" controls></video>
+
+  <script>
+    async function playVideo() {
+      const input = document.getElementById("link").value.trim();
+      const video = document.getElementById("player");
+
+      if (!input.includes("/s/")) {
+        alert("⚠️ Invalid Terabox share link.");
+        return;
+      }
+
+      try {
+        // Step 1: Get m3u8 from API
+        const res = await fetch(`https://api.ronnieverse.site/get_m3u8?url=${encodeURIComponent(input)}&quality=720`);
+        const data = await res.json();
+
+        if (!data || !data.m3u8_url) {
+          alert("❌ M3U8 stream not found.");
+          return;
+        }
+
+        // Step 2: Proxy M3U8 via your Worker
+        const proxyWorker = "https://tera-proxy.aavuchhe.workers.dev";
+        const finalUrl = `${proxyWorker}/?url=${encodeURIComponent(data.m3u8_url)}`;
+
+        if (Hls.isSupported()) {
+          const hls = new Hls();
+          hls.loadSource(finalUrl);
+          hls.attachMedia(video);
+          hls.on(Hls.Events.MANIFEST_PARSED, () => {
+            video.play();
+          });
+          hls.on(Hls.Events.ERROR, function (event, data) {
+            console.error("HLS error:", data);
+            alert("❌ Failed to load stream.");
+          });
+        } else if (video.canPlayType("application/vnd.apple.mpegurl")) {
+          video.src = finalUrl;
+          video.addEventListener("loadedmetadata", () => {
+            video.play();
+          });
+        } else {
+          alert("❌ Browser does not support HLS.");
+        }
+
+      } catch (e) {
+        console.error(e);
+        alert("❌ Something went wrong.");
+      }
+    }
+  </script>
+
+</body>
+</html>
